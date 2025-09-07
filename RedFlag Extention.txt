@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybersecurity Awareness Challenge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #1a202c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <!-- Main Game Container -->
+    <div id="game-container" class="bg-white p-6 md:p-10 rounded-3xl shadow-2xl max-w-4xl w-full mx-auto transform transition-transform duration-500 scale-100">
+
+        <!-- Game Screens will be rendered here dynamically -->
+        <div id="start-screen" class="flex flex-col items-center text-center">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-blue-800 mb-4">Cybersecurity Awareness Challenge</h1>
+            <p class="text-lg md:text-xl text-gray-700 mb-8 max-w-2xl">Welcome, Cyber Defender! Your mission is to identify the red flags in a series of online scams. Do you have what it takes to stay safe online?</p>
+            <button id="start-button" class="px-8 py-4 bg-green-500 text-white font-bold rounded-full shadow-lg hover:bg-green-600 transition duration-300 transform hover:scale-105">Start Your Mission</button>
+        </div>
+
+        <div id="challenge-screen" class="hidden">
+            <h2 id="scenario-title" class="text-2xl md:text-3xl font-bold text-gray-900 mb-4 text-center"></h2>
+            <p id="scenario-description" class="text-gray-600 mb-6 text-center"></p>
+
+            <div class="relative w-full rounded-xl overflow-hidden shadow-lg border-2 border-gray-200">
+                <img id="scenario-image" class="w-full h-auto" src="" alt="Scenario Image">
+                <div id="hotspots" class="absolute inset-0"></div>
+            </div>
+
+            <div class="mt-8">
+                <p class="text-lg font-semibold text-gray-800 text-center mb-2">Instructions:</p>
+                <ul id="instructions-list" class="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
+                    <li class="flex items-center gap-2"><div class="w-3 h-3 bg-red-500 rounded-full"></div>Click on the red flags you find.</li>
+                </ul>
+            </div>
+
+            <div class="flex justify-center gap-4 mt-6">
+                <button id="next-challenge-button" class="hidden px-6 py-2 bg-blue-500 text-white font-bold rounded-full shadow-md hover:bg-blue-600 transition duration-300">Next Challenge</button>
+                <button id="complete-challenge-button" class="px-6 py-2 bg-purple-500 text-white font-bold rounded-full shadow-md hover:bg-purple-600 transition duration-300">Submit</button>
+            </div>
+        </div>
+
+        <div id="results-screen" class="hidden flex flex-col items-center text-center">
+            <h2 class="text-3xl md:text-4xl font-extrabold text-blue-800 mb-4">Mission Complete!</h2>
+            <p id="final-score" class="text-lg md:text-2xl text-gray-700 mb-6 font-semibold"></p>
+            <p id="feedback-message" class="text-md md:text-lg text-gray-600 max-w-2xl mb-8"></p>
+            <button id="restart-button" class="px-8 py-4 bg-green-500 text-white font-bold rounded-full shadow-lg hover:bg-green-600 transition duration-300 transform hover:scale-105">Play Again</button>
+        </div>
+
+    </div>
+
+    <!-- Custom Modal for Feedback (Instead of alert()) -->
+    <div id="feedback-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full text-center transform scale-95 transition-transform duration-300">
+            <h3 id="modal-title" class="text-2xl font-bold mb-2"></h3>
+            <p id="modal-message" class="text-gray-700 mb-4"></p>
+            <button id="modal-close-button" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-full hover:bg-blue-600 transition duration-300">Got It</button>
+        </div>
+    </div>
+
+    <script>
+        // Game State Variables
+        let currentChallengeIndex = 0;
+        let score = 0;
+        let userClickedHotspots = new Set();
+        let isChallengeSubmitted = false;
+        
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const challengeScreen = document.getElementById('challenge-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const startButton = document.getElementById('start-button');
+        const scenarioTitle = document.getElementById('scenario-title');
+        const scenarioDescription = document.getElementById('scenario-description');
+        const scenarioImage = document.getElementById('scenario-image');
+        const hotspotsContainer = document.getElementById('hotspots');
+        const nextChallengeButton = document.getElementById('next-challenge-button');
+        const completeChallengeButton = document.getElementById('complete-challenge-button');
+        const finalScoreText = document.getElementById('final-score');
+        const feedbackMessageText = document.getElementById('feedback-message');
+        const restartButton = document.getElementById('restart-button');
+        const feedbackModal = document.getElementById('feedback-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalCloseButton = document.getElementById('modal-close-button');
+
+        // Scenarios for the challenge with updated images and hotspot coordinates
+        const challenges = [
+            {
+                title: "Fake Invoice Email",
+                description: "You receive an urgent email about an overdue invoice. Find all the signs that it's a scam.",
+                image: "https://i.imgur.com/7K5L5gA.png", // A more realistic-looking phishing email screenshot
+                redFlags: [
+                    { id: 'flag1', text: 'Suspicious sender address.', x: 1, y: 15, width: 28, height: 4 },
+                    { id: 'flag2', text: 'Generic greeting and urgent language.', x: 5, y: 22, width: 60, height: 10 },
+                    { id: 'flag3', text: 'Unusual file name or attachment.', x: 5, y: 70, width: 30, height: 10 },
+                    { id: 'flag4', text: 'Mismatched branding or logo.', x: 5, y: 2, width: 25, height: 10 },
+                ]
+            },
+            {
+                title: "Free Gift Card Pop-Up",
+                description: "You're browsing the web and a pop-up appears, claiming you've won a gift card. Find the red flags.",
+                image: "https://i.imgur.com/nJ3XyP2.png", // A realistic-looking "You have won!" pop-up
+                redFlags: [
+                    { id: 'flag5', text: 'Unbelievable offer.', x: 10, y: 15, width: 80, height: 15 },
+                    { id: 'flag6', text: 'The URL is not the brand’s official site.', x: 5, y: 5, width: 40, height: 5 },
+                    { id: 'flag7', text: 'A request for personal information to claim the prize.', x: 10, y: 50, width: 80, height: 15 },
+                ]
+            },
+            {
+                title: "Fake Social Media Profile",
+                description: "A friend's account DMs you with an unusual request for money. Find the signs of a compromised account.",
+                image: "https://i.imgur.com/vH1NqX5.png", // Screenshot of a fake DM
+                redFlags: [
+                    { id: 'flag8', text: 'The request is urgent and out of character.', x: 20, y: 45, width: 60, height: 10 },
+                    { id: 'flag9', text: 'Grammatical errors or awkward phrasing.', x: 20, y: 55, width: 60, height: 10 },
+                    { id: 'flag10', text: 'The account has a new profile picture or no content.', x: 5, y: 5, width: 30, height: 10 },
+                ]
+            }
+        ];
+
+        // --- Game Logic Functions ---
+
+        /**
+         * Initializes the game by showing the start screen and setting up the button listener.
+         */
+        function init() {
+            startButton.addEventListener('click', () => {
+                startScreen.classList.add('hidden');
+                challengeScreen.classList.remove('hidden');
+                loadChallenge(currentChallengeIndex);
+            });
+
+            restartButton.addEventListener('click', () => {
+                currentChallengeIndex = 0;
+                score = 0;
+                resultsScreen.classList.add('hidden');
+                startScreen.classList.remove('hidden');
+                resetGame();
+            });
+
+            completeChallengeButton.addEventListener('click', submitChallenge);
+            nextChallengeButton.addEventListener('click', loadNextChallenge);
+            modalCloseButton.addEventListener('click', () => feedbackModal.classList.add('hidden'));
+        }
+
+        /**
+         * Loads a challenge based on the provided index.
+         * @param {number} index - The index of the challenge to load.
+         */
+        function loadChallenge(index) {
+            if (index >= challenges.length) {
+                showResults();
+                return;
+            }
+
+            const challenge = challenges[index];
+            scenarioTitle.textContent = challenge.title;
+            scenarioDescription.textContent = challenge.description;
+            scenarioImage.src = challenge.image;
+            hotspotsContainer.innerHTML = ''; // Clear previous hotspots
+            userClickedHotspots.clear();
+            isChallengeSubmitted = false;
+            completeChallengeButton.classList.remove('hidden');
+            nextChallengeButton.classList.add('hidden');
+            
+            // Create clickable hotspot areas
+            challenge.redFlags.forEach(flag => {
+                const hotspot = document.createElement('div');
+                hotspot.className = 'hotspot absolute rounded-lg border-2 border-transparent transition-colors duration-200 cursor-pointer';
+                hotspot.style.left = `${flag.x}%`;
+                hotspot.style.top = `${flag.y}%`;
+                hotspot.style.width = `${flag.width}%`;
+                hotspot.style.height = `${flag.height}%`;
+                hotspot.dataset.id = flag.id;
+                hotspot.title = flag.text; // Use title for hover tooltip
+                hotspotsContainer.appendChild(hotspot);
+
+                hotspot.addEventListener('click', () => {
+                    if (isChallengeSubmitted) return; // Disable clicks after submission
+                    if (!userClickedHotspots.has(flag.id)) {
+                        userClickedHotspots.add(flag.id);
+                        hotspot.classList.add('border-red-500'); // Highlight clicked hotspot
+                    }
+                });
+            });
+        }
+
+        /**
+         * Submits the user's answers for the current challenge.
+         */
+        function submitChallenge() {
+            if (isChallengeSubmitted) return;
+            isChallengeSubmitted = true;
+            
+            const challenge = challenges[currentChallengeIndex];
+            const correctFlags = new Set(challenge.redFlags.map(flag => flag.id));
+            
+            let correctClicks = 0;
+            userClickedHotspots.forEach(id => {
+                if (correctFlags.has(id)) {
+                    correctClicks++;
+                }
+            });
+
+            const totalFlags = challenge.redFlags.length;
+            const pointsForChallenge = (correctClicks / totalFlags) * 10;
+            score += pointsForChallenge;
+            
+            const feedbackTitle = pointsForChallenge > 5 ? "Great Job!" : "Good Effort!";
+            const feedbackMessage = `You found ${correctClicks} out of ${totalFlags} red flags. You earned ${pointsForChallenge.toFixed(1)} points.`;
+            
+            showFeedbackModal(feedbackTitle, feedbackMessage);
+            completeChallengeButton.classList.add('hidden');
+            nextChallengeButton.classList.remove('hidden');
+            highlightAllFlags(challenge.redFlags);
+        }
+
+        /**
+         * Shows the feedback modal with a title and message.
+         * @param {string} title - The title for the modal.
+         * @param {string} message - The message for the modal.
+         */
+        function showFeedbackModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            feedbackModal.classList.remove('hidden');
+        }
+
+        /**
+         * Highlights all correct and incorrect red flags after submission.
+         * @param {Array} redFlags - The array of red flags for the current challenge.
+         */
+        function highlightAllFlags(redFlags) {
+            redFlags.forEach(flag => {
+                const hotspot = document.querySelector(`[data-id="${flag.id}"]`);
+                if (userClickedHotspots.has(flag.id)) {
+                    hotspot.classList.add('border-green-500'); // Correctly identified
+                } else {
+                    hotspot.classList.add('border-red-500'); // Missed
+                }
+            });
+        }
+
+        /**
+         * Loads the next challenge or ends the game if all challenges are completed.
+         */
+        function loadNextChallenge() {
+            currentChallengeIndex++;
+            if (currentChallengeIndex < challenges.length) {
+                loadChallenge(currentChallengeIndex);
+            } else {
+                showResults();
+            }
+        }
+
+        /**
+         * Displays the final results screen.
+         */
+        function showResults() {
+            challengeScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+            const totalPossibleScore = challenges.length * 10;
+            finalScoreText.textContent = `Your Final Score: ${score.toFixed(1)} / ${totalPossibleScore.toFixed(1)} points`;
+            
+            let message = "";
+            if (score / totalPossibleScore >= 0.8) {
+                message = "You are a master cyber defender! You successfully identified most of the threats.";
+            } else if (score / totalPossibleScore >= 0.5) {
+                message = "You're doing great! Keep practicing to improve your scam-spotting skills.";
+            } else {
+                message = "You've taken the first step to becoming more cyber aware. Review the training materials and try again!";
+            }
+            feedbackMessageText.textContent = message;
+        }
+
+        /**
+         * Resets the game to its initial state.
+         */
+        function resetGame() {
+            currentChallengeIndex = 0;
+            score = 0;
+            userClickedHotspots.clear();
+            isChallengeSubmitted = false;
+        }
+
+        // Initialize the game when the window loads
+        window.onload = init;
+    </script>
+</body>
+</html>
